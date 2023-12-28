@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -11,7 +11,7 @@ app
     .use(helmet())
     .use(morgan("dev"))
 
-app.get("/", (req, res) => {
+app.get("/", (req: Request, res: Response) => {
     return res
         .status(200)
         .json({
