@@ -12,7 +12,7 @@ MongoDB (Make sure MongoDB is installed and running)
 ## Installation
 
 Clone the repository:
-```json
+```bash
   git clone https://github.com/gdsc-nits-org/proto-shorturl-backend.github
 
 ```
@@ -29,7 +29,7 @@ Install dependencies:
 ```
 
 Create a '.env' file in the root directory and set the following environment variables:
-```json
+```bash
    PORT=3000
   MONGODB_URI=mongodb://localhost:3000/proto-shorturl-backend
 
