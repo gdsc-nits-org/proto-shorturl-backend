@@ -26,7 +26,7 @@ Create a '.env' file in the root directory and set the following environment var
    PORT=3000
   DATABASE_URI=mongodb://localhost:3000/proto-shorturl-backend
 ```
-Adjust the 'PORT' and 'MONGODB_URI' values as needed.
+Adjust the 'PORT' and 'DATABASE_URI' values as needed.
 
 ##  Database Setup
 
