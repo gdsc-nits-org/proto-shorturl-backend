@@ -39,17 +39,13 @@ Adjust the 'PORT' and 'MONGODB_URI' values as needed.
 2. Request Body:
 
 ```json
-  {
   "url": "https://example.com"
-}
 ```
 3. Responses:
 
 ```json
-  {
   "originalUrl": "https://example.com",
   "shortUrl": "http://localhost:3000/abc123"
-}
 ```
 #### Redirect to Original URL:
 
