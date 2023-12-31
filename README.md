@@ -34,17 +34,15 @@ Adjust the 'PORT' and 'MONGODB_URI' values as needed.
 2. Create a database named 'url-shortener' (or the name specified in your '.env' file).
 
 ## API Endpoints
-1. Method :'POST'
-2. Endpoint: '/api/shorten'.
+1. Method : POST
+2. Endpoint: /api/shorten
 3. Body:
-
 ```json
 {
   "url": "https://example.com"
 }
 ```
 3. Responses:
-
 ```json
 {
   "originalUrl": "https://example.com",
