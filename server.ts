@@ -2,13 +2,9 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import 'dotenv/config';
-import bodyParser from "body-parser";
-import { nanoid } from 'nanoid';
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
-
+import { createuser } from "src/controllers/createuser";
+import { getuser } from "src/controllers/getusers";
+import { getusermiddleware } from "src/middlewares/getuser";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,8 +13,7 @@ app
     .use(cors())
     .use(helmet())
     .use(morgan("dev"))
-    .use(bodyParser.json());
-    
+    .use(express.json())
 
 app.get("/", (req: Request, res: Response) => {
     return res
@@ -27,6 +22,10 @@ app.get("/", (req: Request, res: Response) => {
             "msg": "Success"
         })
 })
+
+app.post("/createuser", createuser)
+
+app.post("/getuser", getusermiddleware, getuser)
 
 app.listen(PORT, () => {
     console.log(`Service active on PORT ${PORT}`)
