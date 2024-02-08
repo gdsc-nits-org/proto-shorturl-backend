@@ -8,7 +8,7 @@ const createuser = async (req, res) => {
         password: string
     
     }= req.body;
-    console.log(username, email, password)
+    // console.log(username, email, password)
     const data = await prisma.user.create({
         data: {
             username,

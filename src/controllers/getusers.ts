@@ -8,7 +8,7 @@ const getuser = async (req, res) => {
             username,
         }
     })
-    console.log(data)
+    // console.log(data)
     return res.json(data)
 }
 
