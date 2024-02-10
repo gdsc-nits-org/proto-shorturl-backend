@@ -9,6 +9,10 @@ import { nanoid } from "nanoid";
 import prisma from "prisma/prismaClient";
 import { validateInput } from "src/middlewares/middleware";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { PrismaClient } from '@prisma/client';
+import { isAuthenticated } from "src/middlewares/middleware";
+import cookieParser from "cookie-parser";
 // import 'dotenv/config';
 
 const app = express();
@@ -97,6 +101,7 @@ app.get("/api/shortUrl/:shortUrl", async (req: Request, res: Response) => {
       },
       data:{
         clickCount: url.clickCount +1,
+      
       }
     })
     return res.redirect(updatedUrl.longUrl);
@@ -121,7 +126,9 @@ app.post('/signup', async (req: Request, res: Response) => {
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
     // Email already exists, redirect to the login page
-    return res.status(403);
+    
+    return res.redirect('/login');
+    
   }
 
   // Hash the password before storing it
@@ -136,8 +143,14 @@ app.post('/signup', async (req: Request, res: Response) => {
     },
   });
 
-  // console.log(newUser);
-  return res.json({ message: 'User signed up successfully', user: newUser });
+   // Generate JWT token
+   const token = jwt.sign({ userId: newUser.id }, 'your-secret-key', { expiresIn: '1h' });
+
+   // Set cookie with the token
+   res.cookie('jwt', token, { httpOnly: true, maxAge: 3600000 }); // maxAge is in milliseconds (1 hour in this case)
+
+   // console.log(newUser);
+   return res.json({ message: 'User signed up successfully', user: newUser, token });
   } catch (error) {
     console.log(error);
     return res.json({error})
@@ -151,6 +164,8 @@ app.post('/signup', async (req: Request, res: Response) => {
 app.post('/login', async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
 
+   try{
+      
   // Check if the user is already signed up
   const existingUser = await prisma.user.findFirst({
     where: {
@@ -173,7 +188,30 @@ app.post('/login', async (req: Request, res: Response) => {
     return res.status(401).json({ message: 'Incorrect username or password' });
   }
 
-  // Redirect to the /api/shorten route on successful login
+  
+   // Generate JWT token
+   const token = jwt.sign({ userId: existingUser.id }, 'your-secret-key', { expiresIn: '1h' });
+
+   // Set cookie with the token
+   res.cookie('jwt', token, { httpOnly: true, maxAge: 3600000 }); // maxAge is in milliseconds (1 hour in this case)
+
+   // Redirect to the /api/shorten route on successful login
    // Replace with your desired URL
+  // res.redirect('/api/shorten'); // Replace with your desired URL
+
+   return res.json({ message: 'Login successful', user: existingUser, token });
+   }
+   catch(error){
+    console.error(error);
+     res.status(500).json({ error: 'Internal Server Error' });
+   }
+
 });
 
+
+// Logout route
+app.post('/logout', (req: Request, res: Response) => {
+  // Clear the JWT cookie on logout
+  res.clearCookie('jwt');
+  return res.json({ message: 'Logout successful' });
+});
