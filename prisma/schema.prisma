@@ -23,5 +23,5 @@ model Url {
   shortUrl   String   @unique
   clickCount Int      @default(0)
   createdAt  DateTime @default(now())
-
+  // updatedAt  DateTime @updatedAt
 }
