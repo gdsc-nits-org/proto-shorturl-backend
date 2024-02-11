@@ -47,7 +47,8 @@ const isAuthenticated = async (req: Request, res: Response, next: Function) => {
       console.error(error);
       if (error instanceof jwt.JsonWebTokenError) {
         // Invalid signature error
-        return res.status(401).json({ message: 'Unauthorized - Invalid token signature' });
+       return res.redirect('/logout');
+       // return res.status(401).json({ message: 'Unauthorized - Invalid token signature' });
         // You can also redirect to the login page if needed
         // return res.redirect('/login');
       }
@@ -94,8 +95,8 @@ app.post(
       },
     });
 
-    if (existingUrl) {
-      console.log(existingUrl);
+    if (existingUrl[0]) {
+      
       return res.status(403).json({
         originalUrl: existingUrl[0].longUrl,
         shortUrl: existingUrl[0].shortUrl,
@@ -250,7 +251,7 @@ app.post("/login",validateInput,  async (req: Request, res: Response) => {
 
 
 // Logout route
-app.post("/logout", (req: Request, res: Response) => {
+app.get("/logout", (req: Request, res: Response) => {
   // Clear the JWT cookie on logout
   res.clearCookie("jwt");
   return res.json({ message: "Logout successful" });

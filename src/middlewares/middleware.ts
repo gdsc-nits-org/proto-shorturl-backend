@@ -36,35 +36,3 @@ export const validateInput = (req: Request, res: Response, next ) => {
 
 
 
-
-
-// const urlShortenMiddleware = async (req: any, res: any, next: any) => {
-//   try {
-//     const userGivenUrl = req.body.url;
-        
-//     // Check if the URL is already shortened
-//     const existingShortUrl = await prisma.url.findUnique({
-//       where : { longUrl : userGivenUrl },
-//     });
-
-//     if (existingShortUrl) {
-//       // URL is already shortened, respond with the existing short URL
-//       res.json({ shortUrl: existingShortUrl.shortUrl });
-//     } else {
-//       // URL is not yet shortened, generate a new short URL
-//       const shortUrl = nanoid(6); // Implement your logic for generating short URLs
-
-//       // Create a new URL entry in the database
-//       const newUrl = await prisma.url.create({
-//         data: { longUrl: userGivenUrl, shortUrl },
-//       });
-
-//       // Respond with the new short URL
-//       res.json({ shortUrl: newUrl.shortUrl });
-//     }
-//   } catch (error) {
-//     // Handle errors
-//     console.error(error);
-//     res.status(500).json({ error: 'Internal Server Error' });
-//   }
-// };
