@@ -11,7 +11,7 @@ import { validateInput } from "src/middlewares/middleware";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
-
+import * as crypto from 'crypto';
 import cookieParser from "cookie-parser";
 // import 'dotenv/config';
 
@@ -32,7 +32,7 @@ const isAuthenticated = async (req: Request, res: Response, next: Function) => {
   
   if (token) {
     try {
-      const decoded: any = jwt.verify(token, "your-secret-key");
+      const decoded: any = jwt.verify(token, "eahr;idbnpean/pwerinolg");
       req.user = await prisma.user.findUnique({
         where: { id: decoded.userId },
       });
@@ -88,7 +88,7 @@ app.post(
       longUrl,
       shortUrl,
     };
-
+    console.log(req.user)
     const existingUrl = await prisma.url.findMany({
       where: {
         longUrl: longUrl,
@@ -157,8 +157,22 @@ app.get("/api/shortUrl/:shortUrl", async (req: Request, res: Response) => {
   }
 });
 
+// Function to generate a random salt
+function generateSalt(): string {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+// Function to hash the password with salt
+function hashPassword(password: string, salt: string): string {
+  const hashedPassword = crypto
+    .pbkdf2Sync(password, salt, 10000, 64, 'sha512')
+    .toString('hex');
+  return hashedPassword;
+}
+
+
 // Sign-up route
-app.post("/signup",validateInput,  async (req: Request, res: Response) => {
+app.post("/signup", validateInput, async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
 
   try {
@@ -166,12 +180,14 @@ app.post("/signup",validateInput,  async (req: Request, res: Response) => {
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       // Email already exists, redirect to the login page
-
       return res.redirect("/login");
     }
 
-    // Hash the password before storing it
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Generate a random salt
+    const salt = generateSalt();
+
+    // Hash the password with the generated salt
+    const hashedPassword = hashPassword(password, salt);
 
     // Create a new user
     const newUser = await prisma.user.create({
@@ -179,18 +195,18 @@ app.post("/signup",validateInput,  async (req: Request, res: Response) => {
         username,
         email,
         password: hashedPassword,
+        salt,
       },
     });
 
     // Generate JWT token
-    const token = jwt.sign({ userId: newUser.id }, "your-secret-key", {
+    const token = jwt.sign({ userId: newUser.id }, "eahr;idbnpean/pwerinolg", {
       expiresIn: "1h",
     });
 
     // Set cookie with the token
-    res.cookie("jwt", token, { httpOnly: true, maxAge: 3600000 }); // maxAge is in milliseconds (1 hour in this case)
+    res.cookie("jwt", token, { httpOnly: true, maxAge: 3600000 });
 
-    // console.log(newUser);
     return res.json({
       message: "User signed up successfully",
       user: newUser,
@@ -202,7 +218,8 @@ app.post("/signup",validateInput,  async (req: Request, res: Response) => {
   }
 });
 
-app.post("/login",validateInput,  async (req: Request, res: Response) => {
+// Login route
+app.post("/login", validateInput, async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
 
   try {
@@ -220,9 +237,11 @@ app.post("/login",validateInput,  async (req: Request, res: Response) => {
         .json({ message: "Incorrect username or password" });
     }
 
+    // Hash the provided password with the stored salt
+    const hashedPassword = hashPassword(password, existingUser.salt);
+
     // Check if the password is correct
-    const passwordMatch = await bcrypt.compare(password, existingUser.password);
-    if (!passwordMatch) {
+    if (hashedPassword !== existingUser.password) {
       // Incorrect password, display an error message
       return res
         .status(401)
@@ -230,16 +249,12 @@ app.post("/login",validateInput,  async (req: Request, res: Response) => {
     }
 
     // Generate JWT token
-    const token = jwt.sign({ userId: existingUser.id }, "your-secret-key", {
+    const token = jwt.sign({ userId: existingUser.id }, "eahr;idbnpean/pwerinolg", {
       expiresIn: "1h",
     });
 
     // Set cookie with the token
-    res.cookie("jwt", token, { httpOnly: true, maxAge: 3600000 }); // maxAge is in milliseconds (1 hour in this case)
-
-    // Redirect to the /api/shorten route on successful login
-    // Replace with your desired URL
-    // res.redirect('/api/shorten'); // Replace with your desired URL
+    res.cookie("jwt", token, { httpOnly: true, maxAge: 3600000 });
 
     return res.json({ message: "Login successful", user: existingUser, token });
   } catch (error) {
@@ -247,7 +262,6 @@ app.post("/login",validateInput,  async (req: Request, res: Response) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
 
 
 // Logout route
