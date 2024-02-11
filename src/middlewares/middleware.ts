@@ -3,9 +3,6 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 import express , { Request, Response } from "express";
-import jwt from "jsonwebtoken"
-import cookieParser from "cookie-parser"
-
 
 
 // Middleware for input validation
@@ -37,35 +34,7 @@ export const validateInput = (req: Request, res: Response, next ) => {
   return emailRegex.test(email);
 };
 
-//middleware
-export const isAuthenticated = async (req: Request, res: Response, next: Function) => {
-  const { token } = req.cookies;
-  if (token) {
-    try {
-      const decoded: any= jwt.verify(token, 'your-secret-key');
-      req.user = await prisma.user.findUnique({ where: { id: decoded.userId } });
-      next();
-    } catch (error) {
-      console.error(error);
-     return res.redirect('/login');
-    }
-  } else {
-    res.status(401).json({ message: 'Unauthorized' });
-   return res.redirect('/login');
-  }
-};
 
-
-// // Example usage of the middleware in the /login route
-// app.post('/login', validateInput, async (req: Request, res: Response) => {
-//   // The request will only reach here if the input is valid
-//   const { username, email, password } = req.body;
-
-//   // Your login logic here
-//   // ...
-  
-//   res.json({ message: 'Login successful' });
-// });
 
 
 
