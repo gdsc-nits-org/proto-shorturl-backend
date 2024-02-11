@@ -27,18 +27,30 @@ app
 
 //middleware
 const isAuthenticated = async (req: Request, res: Response, next: Function) => {
-  console.log(req.cookies.jwt);
+
   const token = req.cookies.jwt;
-  console.log(token);
+  
   if (token) {
     try {
       const decoded: any = jwt.verify(token, "your-secret-key");
       req.user = await prisma.user.findUnique({
         where: { id: decoded.userId },
       });
+      if (!req.user) {
+        // User not found based on decoded user ID
+        return res.status(401).json({ message: 'Unauthorized - Invalid user' });
+        // You can also redirect to the login page if needed
+        // return res.redirect('/login');
+      }
       next();
     } catch (error) {
       console.error(error);
+      if (error instanceof jwt.JsonWebTokenError) {
+        // Invalid signature error
+        return res.status(401).json({ message: 'Unauthorized - Invalid token signature' });
+        // You can also redirect to the login page if needed
+        // return res.redirect('/login');
+      }
       //  return res.redirect('/login');
     }
   } else {
@@ -145,7 +157,7 @@ app.get("/api/shortUrl/:shortUrl", async (req: Request, res: Response) => {
 });
 
 // Sign-up route
-app.post("/signup", validateInput, async (req: Request, res: Response) => {
+app.post("/signup",validateInput,  async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
 
   try {
@@ -189,7 +201,7 @@ app.post("/signup", validateInput, async (req: Request, res: Response) => {
   }
 });
 
-app.post("/login", validateInput, async (req: Request, res: Response) => {
+app.post("/login",validateInput,  async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
 
   try {
@@ -234,6 +246,8 @@ app.post("/login", validateInput, async (req: Request, res: Response) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+
 
 // Logout route
 app.post("/logout", (req: Request, res: Response) => {
