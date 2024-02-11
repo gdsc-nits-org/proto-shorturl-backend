@@ -11,7 +11,7 @@ import { validateInput } from "src/middlewares/middleware";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
-import { isAuthenticated } from "src/middlewares/middleware";
+
 import cookieParser from "cookie-parser";
 // import 'dotenv/config';
 
@@ -24,6 +24,41 @@ app
   .use(morgan("dev"))
   .use(express.json())
   .use(cookieParser());
+
+//middleware
+const isAuthenticated = async (req: Request, res: Response, next: Function) => {
+
+  const token = req.cookies.jwt;
+  
+  if (token) {
+    try {
+      const decoded: any = jwt.verify(token, "your-secret-key");
+      req.user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+      });
+      if (!req.user) {
+        // User not found based on decoded user ID
+        return res.status(401).json({ message: 'Unauthorized - Invalid user' });
+        // You can also redirect to the login page if needed
+        // return res.redirect('/login');
+      }
+      next();
+    } catch (error) {
+      console.error(error);
+      if (error instanceof jwt.JsonWebTokenError) {
+        // Invalid signature error
+       return res.redirect('/logout');
+       // return res.status(401).json({ message: 'Unauthorized - Invalid token signature' });
+        // You can also redirect to the login page if needed
+        // return res.redirect('/login');
+      }
+      //  return res.redirect('/login');
+    }
+  } else {
+    res.status(401).json({ message: "Unauthorized" });
+    //  return res.redirect('/login');
+  }
+};
 
 app.get("/", async (req: Request, res: Response) => {
   const data = await prisma.url.findMany({});
@@ -43,51 +78,58 @@ app.listen(PORT, () => {
   console.log(`Service active on PORT ${PORT}`);
 });
 
-app.post("/api/shorten", isAuthenticated, async (req: Request, res: Response) => {
-  const shortUrl = nanoid(6);
-  const longUrl = req.body.originalUrl;
-  const url = {
-    longUrl,
-    shortUrl,
-  };
+app.post(
+  "/api/shorten",
+  isAuthenticated,
+  async (req: Request, res: Response) => {
+    const shortUrl = nanoid(6);
+    const longUrl = req.body.originalUrl;
+    const url = {
+      longUrl,
+      shortUrl,
+    };
+    console.log(longUrl)
 
-  const existingUrl = await prisma.url.findMany({
-    where: {
-      longUrl: longUrl,
-    },
-  });
-
-  if (existingUrl[0]) {
-    return res.status(403).json({
-      originalUrl: existingUrl[0].longUrl,
-      shortUrl: existingUrl[0].shortUrl,
-      data: existingUrl,
-    });
-  }
-
-  try {
-    const result = await prisma.url.create({
-      data: {
-        longUrl: url.longUrl,
-        shortUrl: url.shortUrl,
+    const existingUrl = await prisma.url.findMany({
+      where: {
+        longUrl: longUrl,
       },
     });
 
-    if (result) {
-      return res.status(201).json({
-        message: "ShortUrl successfully created",
-        originalUrl: result.longUrl,
-        shortUrl: result.shortUrl,
+    if (existingUrl[0]) {
+      
+      return res.status(403).json({
+        originalUrl: existingUrl[0].longUrl,
+        shortUrl: existingUrl[0].shortUrl,
+        data: existingUrl,
       });
-    } else {
-      return res.status(501).json({ error: "Couldn't create shortUrl" });
     }
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ error: "Something went wrong.Its not you, its us" });
+
+    try {
+      const result = await prisma.url.create({
+        data: {
+          longUrl: url.longUrl,
+          shortUrl: url.shortUrl,
+          userId: req.user.id
+        },
+      });
+
+      if (result) {
+        return res.status(201).json({
+          message: "ShortUrl successfully created",
+          originalUrl: result.longUrl,
+          shortUrl: result.shortUrl,
+        });
+      } else {
+        return res.status(501).json({ error: "Couldn't create shortUrl" });
+      }
+    } catch (error) {
+      return res
+        .status(500)
+        .json({ error});
+    }
   }
-});
+);
 
 app.get("/api/shortUrl/:shortUrl", async (req: Request, res: Response) => {
   const shortUrl = req.params.shortUrl;
@@ -118,14 +160,16 @@ app.get("/api/shortUrl/:shortUrl", async (req: Request, res: Response) => {
 });
 
 // Sign-up route
-app.post("/signup", validateInput, async (req: Request, res: Response) => {
+app.post("/signup",validateInput,  async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
 
   try {
     // Check if the email already exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
-      return res.render("/login");
+      // Email already exists, redirect to the login page
+
+      return res.redirect("/login");
     }
 
     // Hash the password before storing it
@@ -160,7 +204,7 @@ app.post("/signup", validateInput, async (req: Request, res: Response) => {
   }
 });
 
-app.post("/login", validateInput, async (req: Request, res: Response) => {
+app.post("/login",validateInput,  async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
 
   try {
@@ -206,8 +250,10 @@ app.post("/login", validateInput, async (req: Request, res: Response) => {
   }
 });
 
+
+
 // Logout route
-app.post("/logout", (req: Request, res: Response) => {
+app.get("/logout", (req: Request, res: Response) => {
   // Clear the JWT cookie on logout
   res.clearCookie("jwt");
   return res.json({ message: "Logout successful" });
