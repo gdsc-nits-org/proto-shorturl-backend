@@ -8,9 +8,9 @@ import { getusermiddleware } from "src/middlewares/getuser";
 import { nanoid } from "nanoid";
 import prisma from "prisma/prismaClient";
 import { validateInput } from "src/middlewares/middleware";
-import bcrypt from "bcrypt";
+// import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { PrismaClient } from "@prisma/client";
+// import { PrismaClient } from "@prisma/client";
 import * as crypto from 'crypto';
 import cookieParser from "cookie-parser";
 // import 'dotenv/config';
@@ -44,7 +44,7 @@ const isAuthenticated = async (req: Request, res: Response, next: Function) => {
       }
       next();
     } catch (error) {
-      console.error(error);
+      // console.error(error);
       if (error instanceof jwt.JsonWebTokenError) {
         // Invalid signature error
        return res.redirect('/logout');
@@ -88,7 +88,8 @@ app.post(
       longUrl,
       shortUrl,
     };
-    console.log(req.user)
+    // console.log(longUrl)
+
     const existingUrl = await prisma.url.findMany({
       where: {
         longUrl: longUrl,
@@ -109,14 +110,14 @@ app.post(
         data: {
           longUrl: url.longUrl,
           shortUrl: url.shortUrl,
+          userId: req.user.id
         },
       });
 
       if (result) {
         return res.status(201).json({
           message: "ShortUrl successfully created",
-          originalUrl: result.longUrl,
-          shortUrl: result.shortUrl,
+          url: result
         });
       } else {
         return res.status(501).json({ error: "Couldn't create shortUrl" });
@@ -124,7 +125,7 @@ app.post(
     } catch (error) {
       return res
         .status(500)
-        .json({ error: "Something went wrong.Its not you, its us" });
+        .json({ error});
     }
   }
 );
@@ -213,7 +214,7 @@ app.post("/signup", validateInput, async (req: Request, res: Response) => {
       token,
     });
   } catch (error) {
-    console.log(error);
+    // console.log(error);
     return res.json({ error });
   }
 });
@@ -258,7 +259,7 @@ app.post("/login", validateInput, async (req: Request, res: Response) => {
 
     return res.json({ message: "Login successful", user: existingUser, token });
   } catch (error) {
-    console.error(error);
+    // console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
@@ -269,4 +270,35 @@ app.get("/logout", (req: Request, res: Response) => {
   // Clear the JWT cookie on logout
   res.clearCookie("jwt");
   return res.json({ message: "Logout successful" });
+});
+
+app.post("/api/manage", isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const data = req.body;
+    const longUrl = data.originalUrl;
+    const shortUrl = data.shortUrl;
+    const existingUrl = await prisma.url.findFirst({
+      where: {
+        longUrl: longUrl,
+        userId: req.user.userId
+      },
+    });
+
+    if (existingUrl ) {
+
+      const updatedUrl = await prisma.url.updateMany({
+        where: {
+          longUrl: longUrl,
+          userId: req.user.userId
+        },
+        data: {
+          shortUrl: shortUrl,
+        },
+      });
+      return res.status(202).json({ message: "success" , data:updatedUrl});
+    }
+    return res.status(404).json({message:"URL does not exist"})
+  } catch (error) {
+    return res.status(500);
+  }
 });
