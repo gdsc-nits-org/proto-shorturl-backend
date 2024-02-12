@@ -8,13 +8,15 @@ import { getusermiddleware } from "src/middlewares/getuser";
 import { nanoid } from "nanoid";
 import prisma from "prisma/prismaClient";
 import { validateInput } from "src/middlewares/middleware";
-import bcrypt from "bcrypt";
+// import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+// import { PrismaClient } from "@prisma/client";
+import * as crypto from "crypto";
 import cookieParser from "cookie-parser";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const secretKey=process.env.KEY;
+const secretKey = process.env.KEY;
 
 app
   .use(cors())
@@ -25,9 +27,8 @@ app
 
 //middleware
 const isAuthenticated = async (req: Request, res: Response, next: Function) => {
-
   const token = req.cookies.jwt;
-  
+
   if (token) {
     try {
       const decoded: any = jwt.verify(token, secretKey);
@@ -36,17 +37,17 @@ const isAuthenticated = async (req: Request, res: Response, next: Function) => {
       });
       if (!req.user) {
         // User not found based on decoded user ID
-        return res.status(401).json({ message: 'Unauthorized - Invalid user' });
+        return res.status(401).json({ message: "Unauthorized - Invalid user" });
         // You can also redirect to the login page if needed
         // return res.redirect('/login');
       }
       next();
     } catch (error) {
-      console.error(error);
+      // console.error(error);
       if (error instanceof jwt.JsonWebTokenError) {
         // Invalid signature error
-       return res.redirect('/logout');
-       // return res.status(401).json({ message: 'Unauthorized - Invalid token signature' });
+        return res.redirect("/logout");
+        // return res.status(401).json({ message: 'Unauthorized - Invalid token signature' });
         // You can also redirect to the login page if needed
         // return res.redirect('/login');
       }
@@ -59,7 +60,11 @@ const isAuthenticated = async (req: Request, res: Response, next: Function) => {
 };
 
 app.get("/", async (req: Request, res: Response) => {
-  const data = await prisma.url.findMany({});
+  const data = await prisma.url.findMany({
+    // where: {
+    //   userId:req.user.userId
+    // }
+  });
 
   return res.status(201).json({
     msg: "Success",
@@ -90,14 +95,14 @@ app.post(
     const existingUrl = await prisma.url.findMany({
       where: {
         longUrl: longUrl,
+        userId : req.user.id
       },
     });
 
-    if (existingUrl[0] && existingUrl[0].userId===req.user.userId) {
-      
+    if (existingUrl[0] && existingUrl[0].userId === req.user.id) {
       return res.status(403).json({
         originalUrl: existingUrl[0].longUrl,
-        shortUrl: existingUrl[0].shortUrl,
+        shortUrl: `${req.baseUrl}/${existingUrl[0].shortUrl}`,
         data: existingUrl,
       });
     }
@@ -107,28 +112,25 @@ app.post(
         data: {
           longUrl: url.longUrl,
           shortUrl: url.shortUrl,
-          userId: req.user.id
+          userId: req.user.id,
         },
       });
 
       if (result) {
         return res.status(201).json({
           message: "ShortUrl successfully created",
-          originalUrl: result.longUrl,
-          shortUrl: result.shortUrl,
+          url: result,
         });
       } else {
         return res.status(501).json({ error: "Couldn't create shortUrl" });
       }
     } catch (error) {
-      return res
-        .status(500)
-        .json({ error});
+      return res.status(500).json({ error });
     }
   }
 );
 
-app.get("/api/shortUrl/:shortUrl", async (req: Request, res: Response) => {
+app.get("/:shortUrl", async (req: Request, res: Response) => {
   const shortUrl = req.params.shortUrl;
   const url = await prisma.url.findUnique({
     where: {
@@ -147,17 +149,27 @@ app.get("/api/shortUrl/:shortUrl", async (req: Request, res: Response) => {
     });
     return res.redirect(updatedUrl.longUrl);
   } else {
-    return res
-      .status(404)
-      .json({
-        msg: "URL not found",
-      })
-      .redirect("https://google.com");
+    return res.redirect("https://google.com").status(404).json({
+      msg: "URL not found",
+    });
   }
 });
 
+// Function to generate a random salt
+function generateSalt(): string {
+  return crypto.randomBytes(16).toString("hex");
+}
+
+// Function to hash the password with salt
+function hashPassword(password: string, salt: string): string {
+  const hashedPassword = crypto
+    .pbkdf2Sync(password, salt, 10000, 64, "sha512")
+    .toString("hex");
+  return hashedPassword;
+}
+
 // Sign-up route
-app.post("/signup",validateInput,  async (req: Request, res: Response) => {
+app.post("/signup", validateInput, async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
 
   try {
@@ -165,12 +177,14 @@ app.post("/signup",validateInput,  async (req: Request, res: Response) => {
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       // Email already exists, redirect to the login page
-
       return res.redirect("/login");
     }
 
-    // Hash the password before storing it
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Generate a random salt
+    const salt = generateSalt();
+
+    // Hash the password with the generated salt
+    const hashedPassword = hashPassword(password, salt);
 
     // Create a new user
     const newUser = await prisma.user.create({
@@ -178,30 +192,31 @@ app.post("/signup",validateInput,  async (req: Request, res: Response) => {
         username,
         email,
         password: hashedPassword,
+        salt,
       },
     });
 
     // Generate JWT token
-    const token = jwt.sign({ userId: newUser.id }, secretKey , {
+    const token = jwt.sign({ userId: newUser.id }, secretKey, {
       expiresIn: "1h",
     });
 
     // Set cookie with the token
-    res.cookie("jwt", token, { httpOnly: true, maxAge: 3600000 }); // maxAge is in milliseconds (1 hour in this case)
+    res.cookie("jwt", token, { httpOnly: true, maxAge: 3600000 });
 
-    // console.log(newUser);
     return res.json({
       message: "User signed up successfully",
       user: newUser,
       token,
     });
   } catch (error) {
-    console.log(error);
+    // console.log(error);
     return res.json({ error });
   }
 });
 
-app.post("/login",validateInput,  async (req: Request, res: Response) => {
+// Login route
+app.post("/login", validateInput, async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
 
   try {
@@ -219,9 +234,11 @@ app.post("/login",validateInput,  async (req: Request, res: Response) => {
         .json({ message: "Incorrect username or password" });
     }
 
+    // Hash the provided password with the stored salt
+    const hashedPassword = hashPassword(password, existingUser.salt);
+
     // Check if the password is correct
-    const passwordMatch = await bcrypt.compare(password, existingUser.password);
-    if (!passwordMatch) {
+    if (hashedPassword !== existingUser.password) {
       // Incorrect password, display an error message
       return res
         .status(401)
@@ -229,25 +246,19 @@ app.post("/login",validateInput,  async (req: Request, res: Response) => {
     }
 
     // Generate JWT token
-    const token = jwt.sign({ userId: existingUser.id }, secretKey , {
+    const token = jwt.sign({ userId: existingUser.id }, secretKey, {
       expiresIn: "1h",
     });
 
     // Set cookie with the token
-    res.cookie("jwt", token, { httpOnly: true, maxAge: 3600000 }); // maxAge is in milliseconds (1 hour in this case)
-
-    // Redirect to the /api/shorten route on successful login
-    // Replace with your desired URL
-    // res.redirect('/api/shorten'); // Replace with your desired URL
+    res.cookie("jwt", token, { httpOnly: true, maxAge: 3600000 });
 
     return res.json({ message: "Login successful", user: existingUser, token });
   } catch (error) {
-    console.error(error);
+    // console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
-
 
 // Logout route
 app.get("/logout", (req: Request, res: Response) => {
@@ -256,33 +267,40 @@ app.get("/logout", (req: Request, res: Response) => {
   return res.json({ message: "Logout successful" });
 });
 
-app.post("/api/manage", isAuthenticated, async (req: Request, res: Response) => {
-  try {
-    const data = req.body;
-    const longUrl = data.originalUrl;
-    const shortUrl = data.shortUrl;
-    const existingUrl = await prisma.url.findMany({
-      where: {
-        longUrl: longUrl,
-        userId:req.user.userId
-      },
-    });
-
-    if (existingUrl[0] && existingUrl[0].userId === req.body ) {
-      // console.log(existingUrl);
-
-      const updatedUrl = await prisma.url.updateMany({
+app.post(
+  "/api/manage",
+  isAuthenticated,
+  async (req: Request, res: Response) => {
+    try {
+      const data = req.body;
+      const longUrl = data.originalUrl;
+      const shortUrl = data.shortUrl;
+      const existingUrl = await prisma.url.findFirst({
         where: {
           longUrl: longUrl,
-        },
-        data: {
-          shortUrl: shortUrl,
+          userId: req.user.id,
         },
       });
-      return res.status(202).json({ message: "success" });
+      // console.log(existingUrl?.userId)
+      // console.log( req.user)
+
+      if (existingUrl && existingUrl.userId === req.user.id) {
+        const updatedUrl = await prisma.url.update({
+          where: {
+            userId: req.user.id,
+            longUrl: longUrl,
+          },
+          data: {
+            shortUrl: shortUrl,
+          },
+        });
+        // console.log(updatedUrl);
+
+        return res.status(202).json({ message: "success", data: updatedUrl });
+      }
+      return res.status(404).json({ message: "URL does not exist" });
+    } catch (error) {
+      return res.status(500);
     }
-    return res.status(404).json({message:"URL does not exist"})
-  } catch (error) {
-    return res.status(500);
   }
-});
+);
