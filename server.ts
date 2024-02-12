@@ -10,13 +10,11 @@ import prisma from "prisma/prismaClient";
 import { validateInput } from "src/middlewares/middleware";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { PrismaClient } from "@prisma/client";
-
 import cookieParser from "cookie-parser";
-// import 'dotenv/config';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const secretKey=process.env.KEY;
 
 app
   .use(cors())
@@ -32,7 +30,7 @@ const isAuthenticated = async (req: Request, res: Response, next: Function) => {
   
   if (token) {
     try {
-      const decoded: any = jwt.verify(token, "your-secret-key");
+      const decoded: any = jwt.verify(token, secretKey);
       req.user = await prisma.user.findUnique({
         where: { id: decoded.userId },
       });
@@ -88,7 +86,6 @@ app.post(
       longUrl,
       shortUrl,
     };
-    console.log(longUrl)
 
     const existingUrl = await prisma.url.findMany({
       where: {
@@ -96,7 +93,7 @@ app.post(
       },
     });
 
-    if (existingUrl[0]) {
+    if (existingUrl[0] && existingUrl[0].userId===req.user.userId) {
       
       return res.status(403).json({
         originalUrl: existingUrl[0].longUrl,
@@ -185,7 +182,7 @@ app.post("/signup",validateInput,  async (req: Request, res: Response) => {
     });
 
     // Generate JWT token
-    const token = jwt.sign({ userId: newUser.id }, "your-secret-key", {
+    const token = jwt.sign({ userId: newUser.id }, secretKey , {
       expiresIn: "1h",
     });
 
@@ -232,7 +229,7 @@ app.post("/login",validateInput,  async (req: Request, res: Response) => {
     }
 
     // Generate JWT token
-    const token = jwt.sign({ userId: existingUser.id }, "your-secret-key", {
+    const token = jwt.sign({ userId: existingUser.id }, secretKey , {
       expiresIn: "1h",
     });
 
@@ -267,11 +264,12 @@ app.post("/api/manage", isAuthenticated, async (req: Request, res: Response) => 
     const existingUrl = await prisma.url.findMany({
       where: {
         longUrl: longUrl,
+        userId:req.user.userId
       },
     });
 
-    if (existingUrl) {
-      console.log(existingUrl);
+    if (existingUrl[0] && existingUrl[0].userId === req.body ) {
+      // console.log(existingUrl);
 
       const updatedUrl = await prisma.url.updateMany({
         where: {
