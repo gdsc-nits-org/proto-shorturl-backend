@@ -2,11 +2,13 @@
   "name": "proto-shorturl-backend",
   "version": "1.0.0",
   "description": "Prototype for ShortURL backend",
-  "main": "index.js",
-  "type": "module",
+  
   "scripts": {
     "dev": "tsx watch ./server.ts",
-    "build": "tsc"
+    "build": "pnpm compile && pnpm esbuild .",
+    "compile": "tsc",
+    "esbuild": "node esbuild.mjs",
+    "start": "node dist/server.js"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +20,7 @@
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
+    "esbuild": "^0.20.1",
     "express": "^4.18.2",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
