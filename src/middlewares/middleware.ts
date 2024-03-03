@@ -1,8 +1,8 @@
 // middleware.ts
-import { PrismaClient } from '@prisma/client';
+// import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
-import express , { Request, Response } from "express";
+// const prisma = new PrismaClient();
+import  { Request, Response } from "express";
 
 
 // Middleware for input validation

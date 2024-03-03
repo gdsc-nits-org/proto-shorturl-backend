@@ -2,9 +2,6 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import { createuser } from "src/controllers/createuser";
-import { getuser } from "src/controllers/getusers";
-import { getusermiddleware } from "src/middlewares/getuser";
 import { nanoid } from "nanoid";
 import prisma from "prisma/prismaClient";
 import { validateInput } from "src/middlewares/middleware";
@@ -73,9 +70,6 @@ app.get("/", async (req: Request, res: Response) => {
   });
 });
 
-app.post("/createuser", createuser);
-
-app.post("/getuser", getusermiddleware, getuser);
 
 app.listen(PORT, () => {
   console.log(`Service active on PORT ${PORT}`);
@@ -149,7 +143,7 @@ app.get("/:shortUrl", async (req: Request, res: Response) => {
     });
     return res.redirect(updatedUrl.longUrl);
   } else {
-    return res.redirect("https://google.com").status(404).json({
+    return res.status(404).json({
       msg: "URL not found",
     });
   }
@@ -261,7 +255,7 @@ app.post("/login", validateInput, async (req: Request, res: Response) => {
 });
 
 // Logout route
-app.get("/logout", (req: Request, res: Response) => {
+app.get("/logout", ( res: Response) => {
   // Clear the JWT cookie on logout
   res.clearCookie("jwt");
   return res.json({ message: "Logout successful" });
@@ -275,6 +269,17 @@ app.post(
       const data = req.body;
       const longUrl = data.originalUrl;
       const shortUrl = data.shortUrl;
+
+      const existingShortUrl= await prisma.url.findFirst({
+        where: {
+          shortUrl: shortUrl
+        }
+      });
+
+      if(existingShortUrl){
+        return res.status(403).json({message : "Shortid already exists in our database. Sorry, Choose something else"})
+      }
+
       const existingUrl = await prisma.url.findFirst({
         where: {
           longUrl: longUrl,
@@ -287,8 +292,7 @@ app.post(
       if (existingUrl && existingUrl.userId === req.user.id) {
         const updatedUrl = await prisma.url.update({
           where: {
-            userId: req.user.id,
-            longUrl: longUrl,
+            id:existingUrl.id
           },
           data: {
             shortUrl: shortUrl,
