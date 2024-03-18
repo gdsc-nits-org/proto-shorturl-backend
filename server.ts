@@ -25,6 +25,15 @@ app
   .use(express.json())
   .use(cookieParser());
 
+  app.use(
+    cors({
+      origin: 'http://localhost:3000', // Replace with the actual origin of your frontend
+      credentials: true,
+    })
+  );
+
+  
+
 //middleware
 const isAuthenticated = async (req: Request, res: Response, next: Function) => {
 
@@ -172,6 +181,7 @@ function hashPassword(password: string, salt: string): string {
 }
 
 
+
 // Sign-up route
 app.post("/signup", validateInput, async (req: Request, res: Response) => {
   const { username, email, password } = req.body;
@@ -302,3 +312,4 @@ app.post("/api/manage", isAuthenticated, async (req: Request, res: Response) => 
     return res.status(500);
   }
 });
+
